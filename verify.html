@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { font-family:Arial; background:#020617; color:#e5e7eb; padding:20px; }
+body { font-family: Arial; background:#020617; color:#e5e7eb; padding:20px; }
 h1 { color:#22c55e; }
 table { width:100%; border-collapse:collapse; margin-top:20px; }
 th, td {
@@ -18,8 +18,6 @@ input, select { width:100%; background:#111827; color:white; border:1px solid #1
 .red { background:#dc2626 !important; }
 .yellow { background:#facc15 !important; color:black; }
 a { color:#93c5fd; }
-img { display:block; margin:2px auto; max-width:50px; }
-button { margin-top:10px; padding:5px 10px; cursor:pointer; }
 </style>
 </head>
 
@@ -27,8 +25,6 @@ button { margin-top:10px; padding:5px 10px; cursor:pointer; }
 
 <h1>✅ Verify Defect (PIC)</h1>
 <p><a href="index.html">← Back to Submit</a></p>
-
-<button onclick="saveAll()">Save All Changes</button>
 
 <table>
 <thead>
@@ -40,7 +36,7 @@ button { margin-top:10px; padding:5px 10px; cursor:pointer; }
 <th>Reject By</th>
 <th>PIC</th>
 <th>Status</th>
-<th colspan="28">14-Day Monitoring (Value / Verification)</th>
+<th colspan="28">14-Day Monitoring</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
@@ -51,13 +47,13 @@ button { margin-top:10px; padding:5px 10px; cursor:pointer; }
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// Firebase Config
 firebase.initializeApp({
   apiKey: "AIzaSyB5EQudIAO9FsxMn6V1qPlawjBzhmlAU_M",
   authDomain: "defect-monitoring-34967.firebaseapp.com",
   databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "defect-monitoring-34967"
 });
+
 const db = firebase.database();
 
 // Render table from Firebase
@@ -75,11 +71,9 @@ db.ref("defects").on("value", snap => {
       const ver = d.days?.[i]?.verification || "";
 
       daysHTML += `
-      <td class="${val==='0'?'green':val!==''?'red':''}">
-        <input type="number" min="0" value="${val}" 
-               oninput="update('${key}',${i},this.value,'value')">
-        <select class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}"
-                onchange="update('${key}',${i},this.value,'verification')">
+      <td>
+        <input value="${val}" oninput="update('${key}',${i},this.value,'value')" class="${val==='0'?'green':val!==''?'red':''}">
+        <select onchange="update('${key}',${i},this.value,'verification')" class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}">
           <option></option>
           <option ${ver==='Verified'?'selected':''}>Verified</option>
           <option ${ver==='Rejected'?'selected':''}>Rejected</option>
@@ -96,8 +90,7 @@ db.ref("defects").on("value", snap => {
       <td>${d.rejectBy}</td>
       <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
       <td>
-        <select class="${d.status==='In Progress'?'yellow':'green'}"
-                onchange="db.ref('defects/${key}/status').set(this.value)">
+        <select onchange="db.ref('defects/${key}/status').set(this.value)" class="${d.status==='In Progress'?'yellow':'Closed'?'green':''}">
           <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
           <option ${d.status==='Closed'?'selected':''}>Closed</option>
         </select>
@@ -107,14 +100,9 @@ db.ref("defects").on("value", snap => {
   });
 });
 
-// Update single day or verification
+// Update specific day value or verification in Firebase
 function update(key, day, val, field){
   db.ref(`defects/${key}/days/${day}/${field}`).set(val);
-}
-
-// Save all (optional, ensures everything synced)
-function saveAll(){
-  alert("All changes are auto-saved in Firebase ✅");
 }
 </script>
 
