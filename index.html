@@ -122,60 +122,73 @@ a { color: #93c5fd; }
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCVSK--rfS1YX3j4vo1ohk4cb05DSVYL2M",
-  authDomain: "defect-monitoring-e0b0a.firebaseapp.com",
-  databaseURL: "https://defect-monitoring-e0b0a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "defect-monitoring-e0b0a",
-  storageBucket: "defect-monitoring-e0b0a.firebasestorage.app",
-  messagingSenderId: "839784520882",
-  appId: "1:839784520882:web:da58fb06c994c67624bdab"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCVSK--rfS1YX3j4vo1ohk4cb05DSVYL2M",
+    authDomain: "defect-monitoring-e0b0a.firebaseapp.com",
+    databaseURL: "https://defect-monitoring-e0b0a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "defect-monitoring-e0b0a",
+    storageBucket: "defect-monitoring-e0b0a.firebasestorage.app",
+    messagingSenderId: "839784520882",
+    appId: "1:839784520882:web:da58fb06c994c67624bdab"
+  };
 
-document.getElementById("defectForm").addEventListener("submit", function(e){
-  e.preventDefault();
-  const fileInput = document.getElementById("photo");
-  let photoData = "";
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  function saveToFirebase(){
-    db.ref("defects").push({
-      date: document.getElementById("date").value,
-      quantity_case: document.getElementById("quantity_case").value,
-      repeating: document.getElementById("repeating").value,
-      time: document.getElementById("time").value,
-      line: document.getElementById("line").value,
-      station: document.getElementById("station").value,
-      manpower: document.getElementById("manpower").value,
-      rejectBy: document.getElementById("rejectBy").value,
-      service: document.getElementById("service").value,
-      photo: photoData,
-      type: document.getElementById("type").value,
-      description: document.getElementById("description").value,
-      category: document.getElementById("category").value,
-      root_cause: document.getElementById("root_cause").value,
-      immediateAction: document.getElementById("action").value,
-      countermeasure: document.getElementById("countermeasure").value,
-      pic: "",
-      status: "Reported",
-      remarks: ""
-    }).then(()=>{
-      alert("Defect submitted successfully ✔️");
-      document.getElementById("defectForm").reset();
-    }).catch(err=>{
-      console.error(err);
-      alert("Submit failed – check console");
-    });
-  }
+  const form = document.getElementById("defectForm");
 
-  if(fileInput.files.length>0){
-    const reader = new FileReader();
-    reader.onload = ()=> { photoData = reader.result; saveToFirebase(); }
-    reader.readAsDataURL(fileInput.files[0]);
-  } else { saveToFirebase(); }
-});
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const fileInput = document.getElementById("photo");
+    let photoData = "";
+
+    const saveDefect = () => {
+      db.ref("defects").push({
+        date: document.getElementById("date").value,
+        quantity_case: document.getElementById("quantity_case").value,
+        repeating: document.getElementById("repeating").value,
+        time: document.getElementById("time").value,
+        line: document.getElementById("line").value,
+        station: document.getElementById("station").value,
+        manpower: document.getElementById("manpower").value,
+        rejectBy: document.getElementById("rejectBy").value,
+        service: document.getElementById("service").value,
+        photo: photoData,
+        type: document.getElementById("type").value,
+        description: document.getElementById("description").value,
+        category: document.getElementById("category").value,
+        root_cause: document.getElementById("root_cause").value,
+        immediateAction: document.getElementById("action").value,
+        countermeasure: document.getElementById("countermeasure").value,
+        pic: "",
+        status: "In Progress",
+        remarks: ""
+      })
+      .then(() => {
+        alert("Defect submitted successfully ✔️");
+        form.reset();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Submit failed – check console");
+      });
+    };
+
+    if(fileInput.files.length > 0){
+      const reader = new FileReader();
+      reader.onload = () => {
+        photoData = reader.result;
+        saveDefect();
+      };
+      reader.readAsDataURL(fileInput.files[0]);
+    } else {
+      saveDefect();
+    }
+  });
 </script>
 
 </body>
