@@ -6,54 +6,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: #e5e7eb;
-  padding: 20px;
-}
-h1 { color: #22c55e; }
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
+body { font-family:Arial; background:#020617; color:#e5e7eb; padding:20px; }
+h1 { color:#22c55e; }
+table { width:100%; border-collapse:collapse; margin-top:20px; }
 th, td {
-  border: 1px solid #1f2937;
-  padding: 6px;
-  font-size: 12px;
-  text-align: center;
+  border:1px solid #1f2937;
+  padding:5px; font-size:12px; text-align:center;
 }
-th { background: #111827; }
+th { background:#111827; }
 input, select {
-  width: 100%;
-  background: #111827;
-  color: white;
-  border: 1px solid #1f2937;
+  width:100%; background:#111827; color:white;
+  border:1px solid #1f2937;
 }
-a { color: #93c5fd; }
-img { max-width: 50px; }
+.green { background:#16a34a !important; }
+.red { background:#dc2626 !important; }
+.yellow { background:#facc15 !important; color:black; }
+a { color:#93c5fd; }
 </style>
 </head>
 
 <body>
 
 <h1>✅ Verify Defect (PIC)</h1>
-<p><a href="submit.html">← Back to Submit</a></p>
+<p><a href="index.html">← Back to Submit</a></p>
 
 <table>
 <thead>
 <tr>
-<th>No</th>
 <th>Date</th>
 <th>Line</th>
 <th>Station</th>
 <th>Description</th>
-<th>Photo</th>
 <th>Reject By</th>
 <th>PIC</th>
 <th>Status</th>
-<th colspan="28">14-Day Monitoring</th>
+<th colspan="14">14-Day Monitoring</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
@@ -64,113 +51,61 @@ img { max-width: 50px; }
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCVSK--rfS1YX3j4vo1ohk4cb05DSVYL2M",
-  authDomain: "defect-monitoring-e0b0a.firebaseapp.com",
-  databaseURL: "https://defect-monitoring-e0b0a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "defect-monitoring-e0b0a",
-  storageBucket: "defect-monitoring-e0b0a.appspot.com",
-  messagingSenderId: "839784520882",
-  appId: "1:839784520882:web:da58fb06c994c67624bdab"
-};
-
-firebase.initializeApp(firebaseConfig);
+firebase.initializeApp({
+  apiKey: "AIzaSyB5EQudIAO9FsxMn6V1qPlawjBzhmlAU_M",
+  authDomain: "defect-monitoring-34967.firebaseapp.com",
+  databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "defect-monitoring-34967"
+});
 const db = firebase.database();
 
-const tbody = document.getElementById("tableBody");
-
 db.ref("defects").on("value", snap => {
-  tbody.innerHTML = "";
-  let no = 1;
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
 
   snap.forEach(child => {
     const d = child.val();
-    const id = child.key;
+    const key = child.key;
 
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${no++}</td>
-      <td>${d.date || ""}</td>
-      <td>${d.line || ""}</td>
-      <td>${d.station || ""}</td>
-      <td>${d.description || ""}</td>
-      <td>${d.photo ? `<img src="${d.photo}">` : "No Photo"}</td>
-      <td>${d.rejectBy || ""}</td>
+    let daysHTML = "";
+    for(let i=0;i<14;i++){
+      const val = d.days?.[i]?.value || "";
+      const ver = d.days?.[i]?.verification || "";
 
+      daysHTML += `
+      <td class="${val==='0'?'green':val!==''?'red':''}">
+        <input value="${val}" oninput="update('${key}',${i},this.value,'value')">
+        <select class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}"
+                onchange="update('${key}',${i},this.value,'verification')">
+          <option></option>
+          <option ${ver==='Verified'?'selected':''}>Verified</option>
+          <option ${ver==='Rejected'?'selected':''}>Rejected</option>
+        </select>
+      </td>`;
+    }
+
+    body.innerHTML += `
+    <tr>
+      <td>${d.date}</td>
+      <td>${d.line}</td>
+      <td>${d.station}</td>
+      <td>${d.description}</td>
+      <td>${d.rejectBy}</td>
+      <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
       <td>
-        <input id="pic-${id}" value="${d.pic || ""}" 
-        onchange="save('${id}')">
-      </td>
-
-      <td>
-        <select id="status-${id}" onchange="save('${id}')">
-          <option value=""></option>
-          <option ${d.status==="In Progress"?"selected":""}>In Progress</option>
-          <option ${d.status==="Closed"?"selected":""}>Closed</option>
+        <select class="${d.status==='In Progress'?'yellow':'green'}"
+                onchange="db.ref('defects/${key}/status').set(this.value)">
+          <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
+          <option ${d.status==='Closed'?'selected':''}>Closed</option>
         </select>
       </td>
-
-      ${Array.from({length:14}).map((_,j)=>`
-        <td id="daycell-${id}-${j}">
-          <select id="val-${id}-${j}" onchange="save('${id}')">
-            <option value=""></option>
-            <option value="0" ${d.days?.[j]?.value==="0"?"selected":""}>0</option>
-            ${Array.from({length:20}).map((_,n)=>`
-              <option value="${n+1}" ${d.days?.[j]?.value===(n+1)+""?"selected":""}>${n+1}</option>
-            `).join("")}
-          </select>
-        </td>
-        <td id="verifcell-${id}-${j}">
-          <select id="ver-${id}-${j}" onchange="save('${id}')">
-            <option value=""></option>
-            <option ${d.days?.[j]?.verification==="Verified"?"selected":""}>Verified</option>
-            <option ${d.days?.[j]?.verification==="Rejected"?"selected":""}>Rejected</option>
-          </select>
-        </td>
-      `).join("")}
-    `;
-    tbody.appendChild(row);
-    applyColors(id);
+      ${daysHTML}
+    </tr>`;
   });
 });
 
-function save(id){
-  const update = {
-    pic: document.getElementById(`pic-${id}`).value,
-    status: document.getElementById(`status-${id}`).value,
-    days: []
-  };
-
-  for(let j=0;j<14;j++){
-    update.days.push({
-      value: document.getElementById(`val-${id}-${j}`).value,
-      verification: document.getElementById(`ver-${id}-${j}`).value
-    });
-  }
-
-  db.ref("defects/"+id).update(update);
-  applyColors(id);
-}
-
-function applyColors(id){
-  const status = document.getElementById(`status-${id}`);
-  status.style.background =
-    status.value==="In Progress" ? "yellow" :
-    status.value==="Closed" ? "green" : "#111827";
-
-  for(let j=0;j<14;j++){
-    const val = document.getElementById(`val-${id}-${j}`);
-    const cell = document.getElementById(`daycell-${id}-${j}`);
-    if(val.value==="0") cell.style.background="green";
-    else if(val.value!=="") cell.style.background="red";
-    else cell.style.background="#111827";
-
-    const ver = document.getElementById(`ver-${id}-${j}`);
-    const vcell = document.getElementById(`verifcell-${id}-${j}`);
-    if(ver.value==="Verified") vcell.style.background="green";
-    else if(ver.value==="Rejected") vcell.style.background="red";
-    else vcell.style.background="#111827";
-  }
+function update(key, day, val, field){
+  db.ref(`defects/${key}/days/${day}/${field}`).set(val);
 }
 </script>
 
