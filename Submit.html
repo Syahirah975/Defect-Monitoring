@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Submit Defect</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body { font-family: Arial, sans-serif; background: #0f172a; color: #e5e7eb; padding: 20px; }
+h1 { color: #60a5fa; }
+form { max-width: 700px; background: #020617; padding: 20px; border-radius: 10px; }
+label { display: block; margin-top: 15px; font-size: 14px; }
+input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; background: #111827; color: white; border: 1px solid #1f2937; border-radius: 5px; }
+button { margin-top: 20px; padding: 10px; width: 100%; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+a { color: #93c5fd; }
+</style>
+</head>
+
+<body>
+
+<h1>📝 Submit Defect (Monitor)</h1>
+<p><a href="verify.html">Go to Verify Page →</a></p>
+
+<form id="defectForm">
+
+<label>Date</label>
+<input type="date" id="date" required>
+
+<label>Quantity Case</label>
+<input type="number" id="quantity_case" required>
+
+<label>Repeating</label>
+<input type="number" id="repeating" required>
+
+<label>Time</label>
+<input type="time" id="time" required>
+
+<label>Problem</label>
+<textarea id="problem"></textarea>
+
+<label>Line</label>
+<select id="line">
+  <option>Line C1</option>
+  <option>Line C2</option>
+  <option>Line C3</option>
+  <option>Line C4</option>
+  <option>Line C5</option>
+  <option>Line C6</option>
+  <option>Line C7</option>
+  <option>Line C8</option>
+  <option>Line C9</option>
+  <option>Line C10</option>
+  <option>Line C11</option>
+  <option>Line C12</option>
+  <option>Line C13</option>
+  <option>Line C14</option>
+  <option>Line T1/T2</option>
+  <option>Line T3</option>
+  <option>Line T4</option>
+  <option>Line T5</option>
+  <option>Line T6</option>
+  <option>Line T7</option>
+  <option>Line T8</option>
+  <option>Line STK IMV</option>
+  <option>Line STK D92A</option>
+  <option>Line STK 405D</option>
+  <option>Line STK PERODUA</option>
+  <option>Line STK 3M0A</option>
+  <option>Line STK T20A</option>
+</select>
+
+<label>Station</label>
+<input type="text" id="station" required>
+
+<label>Manpower</label>
+<select id="manpower">
+  <option>Regular</option>
+  <option>Support</option>
+</select>
+
+<label>Reject By (Monitor)</label>
+<input type="text" id="rejectBy" required>
+
+<label>Service</label>
+<input type="number" id="service" required>
+
+<label>Defect Photo</label>
+<input type="file" id="photo" accept="image/*">
+
+<label>Defect Type</label>
+<select id="type">
+  <option>Man</option>
+  <option>Machine</option>
+  <option>Method</option>
+  <option>Material</option>
+  <option>Other</option>
+</select>
+
+<label>Defect Description</label>
+<textarea id="description"></textarea>
+
+<label>Defect Category</label>
+<select id="category">
+  <option>X</option>
+  <option>O</option>
+  <option>NA</option>
+</select>
+
+<label>Root Cause</label>
+<textarea id="root_cause"></textarea>
+
+<label>Immediate Action</label>
+<textarea id="action"></textarea>
+
+<label>Countermeasure</label>
+<textarea id="countermeasure"></textarea>
+
+<button type="submit">Submit Defect</button>
+
+</form>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCVSK--rfS1YX3j4vo1ohk4cb05DSVYL2M",
+  authDomain: "defect-monitoring-e0b0a.firebaseapp.com",
+  databaseURL: "https://defect-monitoring-e0b0a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "defect-monitoring-e0b0a",
+  storageBucket: "defect-monitoring-e0b0a.firebasestorage.app",
+  messagingSenderId: "839784520882",
+  appId: "1:839784520882:web:da58fb06c994c67624bdab"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+document.getElementById("defectForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  const fileInput = document.getElementById("photo");
+  let photoData = "";
+
+  function saveToFirebase(){
+    db.ref("defects").push({
+      date: document.getElementById("date").value,
+      quantity_case: document.getElementById("quantity_case").value,
+      repeating: document.getElementById("repeating").value,
+      time: document.getElementById("time").value,
+      line: document.getElementById("line").value,
+      station: document.getElementById("station").value,
+      manpower: document.getElementById("manpower").value,
+      rejectBy: document.getElementById("rejectBy").value,
+      service: document.getElementById("service").value,
+      photo: photoData,
+      type: document.getElementById("type").value,
+      description: document.getElementById("description").value,
+      category: document.getElementById("category").value,
+      root_cause: document.getElementById("root_cause").value,
+      immediateAction: document.getElementById("action").value,
+      countermeasure: document.getElementById("countermeasure").value,
+      pic: "",
+      status: "Reported",
+      remarks: ""
+    }).then(()=>{
+      alert("Defect submitted successfully ✔️");
+      document.getElementById("defectForm").reset();
+    }).catch(err=>{
+      console.error(err);
+      alert("Submit failed – check console");
+    });
+  }
+
+  if(fileInput.files.length>0){
+    const reader = new FileReader();
+    reader.onload = ()=> { photoData = reader.result; saveToFirebase(); }
+    reader.readAsDataURL(fileInput.files[0]);
+  } else { saveToFirebase(); }
+});
+</script>
+
+</body>
+</html>

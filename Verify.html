@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verify Defect</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: #e5e7eb;
+  padding: 20px;
+}
+h1 { color: #22c55e; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+th, td {
+  border: 1px solid #1f2937;
+  padding: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+th {
+  background: #111827;
+}
+input, select {
+  width: 100%;
+  background: #111827;
+  color: white;
+  border: 1px solid #1f2937;
+}
+a { color: #93c5fd; }
+img { display: block; margin: 2px auto; max-width: 50px; }
+</style>
+</head>
+
+<body>
+
+<h1>✅ Verify Defect (PIC)</h1>
+<p><a href="submit.html">← Back to Submit Page</a></p>
+
+<table>
+<thead>
+<tr>
+<th>No</th>
+<th>Date</th>
+<th>Line</th>
+<th>Station</th>
+<th>Description</th>
+<th>Photo</th>
+<th>Reject By</th>
+<th>PIC</th>
+<th>Status</th>
+<th colspan="28">14-Day Monitoring (Value / Verification)</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+
+<script>
+const KEY = "defect_database";
+
+function getData() {
+  return JSON.parse(localStorage.getItem(KEY)) || [];
+}
+
+function saveData(data) {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function render() {
+  const data = getData();
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  data.forEach((d,i)=>{
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${d.no}</td>
+      <td>${d.date}</td>
+      <td>${d.line}</td>
+      <td>${d.station}</td>
+      <td><pre style="white-space: pre-wrap;">${d.description}</pre></td>
+      <td>${d.photo ? `<a href="${d.photo}" target="_blank"><img src="${d.photo}"></a>` : "No Photo"}</td>
+      <td>${d.rejectBy}</td>
+      <td><input placeholder="PIC Name" id="pic-${i}" value="${d.pic}"></td>
+      <td>
+        <select id="status-${i}" onchange="applyColors()">
+          <option${d.status==='In Progress'?' selected':''}>In Progress</option>
+          <option${d.status==='Closed'?' selected':''}>Closed</option>
+        </select>
+      </td>
+      ${Array.from({length:14}).map((_,j)=>`
+        <td id="daycell-${i}-${j}">
+          <input type="number" min="0" id="day-${i}-${j}" value="${d.days?d.days[j].value:''}" oninput="applyColors()">
+        </td>
+        <td id="verifcell-${i}-${j}">
+          <select id="verif-${i}-${j}" onchange="applyColors()">
+            <option></option>
+            <option${d.days && d.days[j].verification==='Verified'?' selected':''}>Verified</option>
+            <option${d.days && d.days[j].verification==='Rejected'?' selected':''}>Rejected</option>
+          </select>
+        </td>
+      `).join('')}
+    `;
+    body.appendChild(row);
+  });
+
+  applyColors();
+}
+
+function saveAll() {
+  const data = getData();
+  data.forEach((d,i)=>{
+    d.pic = document.getElementById(`pic-${i}`).value;
+    d.status = document.getElementById(`status-${i}`).value;
+    d.days = [];
+    for(let j=0;j<14;j++){
+      const val = document.getElementById(`day-${i}-${j}`).value;
+      const verif = document.getElementById(`verif-${i}-${j}`).value;
+      d.days.push({value: val, verification: verif});
+    }
+  });
+  saveData(data);
+  alert("All changes saved ✔️");
+  render();
+}
+
+function applyColors(){
+  const data = getData();
+  data.forEach((d,i)=>{
+    // Status
+    const statusSelect = document.getElementById(`status-${i}`);
+    const statusVal = statusSelect.value;
+    if(statusVal==="In Progress") statusSelect.style.background="yellow";
+    else if(statusVal==="Closed") statusSelect.style.background="green";
+    else statusSelect.style.background="#111827";
+
+    // Days + verification
+    for(let j=0;j<14;j++){
+      const dayInput = document.getElementById(`day-${i}-${j}`);
+      const verifSelect = document.getElementById(`verif-${i}-${j}`);
+      const dayCell = document.getElementById(`daycell-${i}-${j}`);
+      const verifCell = document.getElementById(`verifcell-${i}-${j}`);
+
+      // Day color
+      if(dayInput.value==='0') dayCell.style.background="green";
+      else if(dayInput.value!=='') dayCell.style.background="red";
+      else dayCell.style.background="#111827";
+
+      // Verification color
+      if(verifSelect.value==="Verified") verifCell.style.background="green";
+      else if(verifSelect.value==="Rejected") verifCell.style.background="red";
+      else verifCell.style.background="#111827";
+    }
+  });
+}
+
+// Initial render
+render();
+</script>
+
+</body>
+</html>
