@@ -9,15 +9,9 @@
 body { font-family:Arial; background:#020617; color:#e5e7eb; padding:20px; }
 h1 { color:#22c55e; }
 table { width:100%; border-collapse:collapse; margin-top:20px; }
-th, td {
-  border:1px solid #1f2937;
-  padding:5px; font-size:12px; text-align:center;
-}
+th, td { border:1px solid #1f2937; padding:5px; font-size:12px; text-align:center; }
 th { background:#111827; }
-input, select {
-  width:100%; background:#111827; color:white;
-  border:1px solid #1f2937;
-}
+input, select { width:100%; background:#111827; color:white; border:1px solid #1f2937; }
 .green { background:#16a34a !important; }
 .red { background:#dc2626 !important; }
 .yellow { background:#facc15 !important; color:black; }
@@ -40,17 +34,18 @@ a { color:#93c5fd; }
 <th>Reject By</th>
 <th>PIC</th>
 <th>Status</th>
-<th colspan="14">14-Day Monitoring</th>
+<th colspan="28">14-Day Monitoring (Value / Verification)</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
 </table>
 
-<!-- Firebase -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
+// Initialize Firebase
 firebase.initializeApp({
   apiKey: "AIzaSyB5EQudIAO9FsxMn6V1qPlawjBzhmlAU_M",
   authDomain: "defect-monitoring-34967.firebaseapp.com",
@@ -59,6 +54,7 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 
+// Fetch defects and render
 db.ref("defects").on("value", snap => {
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
@@ -68,15 +64,16 @@ db.ref("defects").on("value", snap => {
     const key = child.key;
 
     let daysHTML = "";
-    for(let i=0;i<14;i++){
+    for(let i=0; i<14; i++){
       const val = d.days?.[i]?.value || "";
       const ver = d.days?.[i]?.verification || "";
 
       daysHTML += `
-      <td class="${val==='0'?'green':val!==''?'red':''}">
-        <input value="${val}" oninput="update('${key}',${i},this.value,'value')">
-        <select class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}"
-                onchange="update('${key}',${i},this.value,'verification')">
+      <td>
+        <input value="${val}" oninput="updateDay('${key}', ${i}, this.value, 'value')"
+               class="${val==='0'?'green':val!==''?'red':''}">
+        <select onchange="updateDay('${key}', ${i}, this.value, 'verification')"
+                class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}">
           <option></option>
           <option ${ver==='Verified'?'selected':''}>Verified</option>
           <option ${ver==='Rejected'?'selected':''}>Rejected</option>
@@ -89,12 +86,12 @@ db.ref("defects").on("value", snap => {
       <td>${d.date}</td>
       <td>${d.line}</td>
       <td>${d.station}</td>
-      <td>${d.description}</td>
+      <td><pre style="white-space: pre-wrap;">${d.description}</pre></td>
       <td>${d.rejectBy}</td>
       <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
       <td>
-        <select class="${d.status==='In Progress'?'yellow':'green'}"
-                onchange="db.ref('defects/${key}/status').set(this.value)">
+        <select onchange="db.ref('defects/${key}/status').set(this.value)"
+                class="${d.status==='In Progress'?'yellow':'green'}">
           <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
           <option ${d.status==='Closed'?'selected':''}>Closed</option>
         </select>
@@ -104,13 +101,11 @@ db.ref("defects").on("value", snap => {
   });
 });
 
-function update(key, day, val, field){
-  db.ref(`defects/${key}/days/${day}/${field}`).set(val);
+// Update individual day/verification in Firebase
+function updateDay(key, dayIndex, value, field){
+  db.ref(`defects/${key}/days/${dayIndex}/${field}`).set(value);
 }
 </script>
 
 </body>
 </html>
-
-
-
