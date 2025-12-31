@@ -6,21 +6,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { font-family: Arial; background:#020617; color:#e5e7eb; padding:20px; }
+body { font-family:Arial; background:#020617; color:#e5e7eb; padding:20px; }
 h1 { color:#22c55e; }
 table { width:100%; border-collapse:collapse; margin-top:20px; }
-th, td {
-  border:1px solid #1f2937; padding:5px; font-size:12px; text-align:center;
-}
+th, td { border:1px solid #1f2937; padding:5px; font-size:12px; text-align:center; }
 th { background:#111827; }
 input, select { width:100%; background:#111827; color:white; border:1px solid #1f2937; }
 .green { background:#16a34a !important; }
 .red { background:#dc2626 !important; }
 .yellow { background:#facc15 !important; color:black; }
 a { color:#93c5fd; }
+img { display:block; margin:2px auto; max-width:50px; }
 </style>
 </head>
-
 <body>
 
 <h1>✅ Verify Defect (PIC)</h1>
@@ -36,7 +34,7 @@ a { color:#93c5fd; }
 <th>Reject By</th>
 <th>PIC</th>
 <th>Status</th>
-<th colspan="28">14-Day Monitoring</th>
+<th colspan="28">14-Day Monitoring (Value / Verification)</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
@@ -53,57 +51,101 @@ firebase.initializeApp({
   databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "defect-monitoring-34967"
 });
-
 const db = firebase.database();
 
-// Render table from Firebase
-db.ref("defects").on("value", snap => {
-  const body = document.getElementById("tableBody");
-  body.innerHTML = "";
+// Render table
+function renderTable() {
+  db.ref("defects").once("value", snap => {
+    const body = document.getElementById("tableBody");
+    body.innerHTML = "";
 
-  snap.forEach(child => {
-    const d = child.val();
-    const key = child.key;
+    snap.forEach(child => {
+      const d = child.val();
+      const key = child.key;
 
-    let daysHTML = "";
-    for(let i=0;i<14;i++){
-      const val = d.days?.[i]?.value || "";
-      const ver = d.days?.[i]?.verification || "";
+      let daysHTML = "";
+      for (let i=0; i<14; i++){
+        const val = d.days?.[i]?.value || "";
+        const ver = d.days?.[i]?.verification || "";
 
-      daysHTML += `
-      <td>
-        <input value="${val}" oninput="update('${key}',${i},this.value,'value')" class="${val==='0'?'green':val!==''?'red':''}">
-        <select onchange="update('${key}',${i},this.value,'verification')" class="${ver==='Verified'?'green':ver==='Rejected'?'red':''}">
-          <option></option>
-          <option ${ver==='Verified'?'selected':''}>Verified</option>
-          <option ${ver==='Rejected'?'selected':''}>Rejected</option>
-        </select>
-      </td>`;
-    }
+        daysHTML += `
+        <td>
+          <input type="number" min="0" value="${val}" 
+                 oninput="updateDay('${key}',${i},this.value)">
+          <select onchange="updateVerification('${key}',${i},this.value)">
+            <option></option>
+            <option ${ver==='Verified'?'selected':''}>Verified</option>
+            <option ${ver==='Rejected'?'selected':''}>Rejected</option>
+          </select>
+        </td>`;
+      }
 
-    body.innerHTML += `
-    <tr>
-      <td>${d.date}</td>
-      <td>${d.line}</td>
-      <td>${d.station}</td>
-      <td><pre style="white-space: pre-wrap;">${d.description}</pre></td>
-      <td>${d.rejectBy}</td>
-      <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
-      <td>
-        <select onchange="db.ref('defects/${key}/status').set(this.value)" class="${d.status==='In Progress'?'yellow':'Closed'?'green':''}">
-          <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
-          <option ${d.status==='Closed'?'selected':''}>Closed</option>
-        </select>
-      </td>
-      ${daysHTML}
-    </tr>`;
+      body.innerHTML += `
+      <tr>
+        <td>${d.date}</td>
+        <td>${d.line}</td>
+        <td>${d.station}</td>
+        <td><pre style="white-space:pre-wrap;">${d.description}</pre></td>
+        <td>${d.rejectBy}</td>
+        <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
+        <td>
+          <select onchange="db.ref('defects/${key}/status').set(this.value)">
+            <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
+            <option ${d.status==='Closed'?'selected':''}>Closed</option>
+          </select>
+        </td>
+        ${daysHTML}
+      </tr>`;
+    });
+
+    applyColors();
   });
-});
-
-// Update specific day value or verification in Firebase
-function update(key, day, val, field){
-  db.ref(`defects/${key}/days/${day}/${field}`).set(val);
 }
+
+// Update day value
+function updateDay(key, dayIndex, val){
+  db.ref(`defects/${key}/days/${dayIndex}/value`).set(val);
+  applyColors();
+}
+
+// Update verification
+function updateVerification(key, dayIndex, val){
+  db.ref(`defects/${key}/days/${dayIndex}/verification`).set(val);
+  applyColors();
+}
+
+// Apply colors dynamically
+function applyColors(){
+  const table = document.getElementById("tableBody");
+  for(let r=0;r<table.rows.length;r++){
+    const row = table.rows[r];
+
+    // Status
+    const status = row.cells[6].querySelector("select");
+    if(status.value === "In Progress") status.className="yellow";
+    else if(status.value === "Closed") status.className="green";
+    else status.className="";
+
+    // Days + verification
+    for(let i=0;i<14;i++){
+      const dayInput = row.cells[7 + i*2].querySelector("input");
+      const verSelect = row.cells[7 + i*2 + 1].querySelector("select");
+
+      // Day color
+      if(dayInput.value==='0') dayInput.className="green";
+      else if(dayInput.value!=='') dayInput.className="red";
+      else dayInput.className="";
+
+      // Verification color
+      if(verSelect.value==="Verified") verSelect.className="green";
+      else if(verSelect.value==="Rejected") verSelect.className="red";
+      else verSelect.className="";
+    }
+  }
+}
+
+// Initial render
+renderTable();
 </script>
 
 </body>
