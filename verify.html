@@ -11,12 +11,19 @@ h1 { color:#22c55e; }
 table { width:100%; border-collapse:collapse; margin-top:20px; }
 th, td { border:1px solid #1f2937; padding:5px; font-size:12px; text-align:center; }
 th { background:#111827; }
-input, select { width:100%; background:#111827; color:white; border:1px solid #1f2937; }
+input, select {
+  width:100%;
+  background:#111827;
+  color:white;
+  border:1px solid #1f2937;
+}
 .green { background:#16a34a !important; }
 .red { background:#dc2626 !important; }
 .yellow { background:#facc15 !important; color:black; }
+.locked { opacity:0.6; pointer-events:none; }
+.day-label { font-size:10px; color:#93c5fd; }
 a { color:#93c5fd; }
-img { display:block; margin:2px auto; max-width:50px; }
+pre { white-space:pre-wrap; }
 </style>
 </head>
 <body>
@@ -27,14 +34,14 @@ img { display:block; margin:2px auto; max-width:50px; }
 <table>
 <thead>
 <tr>
-<th>Date</th>
-<th>Line</th>
-<th>Station</th>
-<th>Description</th>
-<th>Reject By</th>
-<th>PIC</th>
-<th>Status</th>
-<th colspan="28">14-Day Monitoring (Value / Verification)</th>
+  <th>Date</th>
+  <th>Line</th>
+  <th>Station</th>
+  <th>Description</th>
+  <th>Reject By</th>
+  <th>PIC</th>
+  <th>Status</th>
+  <th colspan="14">14-Day Monitoring</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
@@ -51,47 +58,74 @@ firebase.initializeApp({
   databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "defect-monitoring-34967"
 });
+
 const db = firebase.database();
 
-// Render table
-function renderTable() {
-  db.ref("defects").once("value", snap => {
+/* ===== DATE HELPERS ===== */
+function getDayDiff(startDateStr){
+  const start = new Date(startDateStr);
+  const today = new Date();
+  start.setHours(0,0,0,0);
+  today.setHours(0,0,0,0);
+  return Math.floor((today - start) / 86400000);
+}
+
+function getDateLabel(startDateStr, offset){
+  const d = new Date(startDateStr);
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString("en-GB");
+}
+
+/* ===== RENDER ===== */
+function renderTable(){
+  db.ref("defects").once("value", snap=>{
     const body = document.getElementById("tableBody");
     body.innerHTML = "";
 
-    snap.forEach(child => {
+    snap.forEach(child=>{
       const d = child.val();
       const key = child.key;
+      const dayDiff = getDayDiff(d.date);
+      const locked = d.status === "Closed";
 
       let daysHTML = "";
-      for (let i=0; i<14; i++){
+      for(let i=0;i<14;i++){
         const val = d.days?.[i]?.value || "";
         const ver = d.days?.[i]?.verification || "";
+        const future = i > dayDiff;
+        const disabled = (future || locked) ? "disabled" : "";
 
         daysHTML += `
         <td>
-          <input type="number" min="0" value="${val}" 
-                 oninput="updateDay('${key}',${i},this.value)">
-          <select onchange="updateVerification('${key}',${i},this.value)">
+          <div class="day-label">${getDateLabel(d.date,i)}</div>
+          <input type="number" min="0" value="${val}" ${disabled}
+            oninput="updateDay('${key}',${i},this.value)">
+          <select ${disabled}
+            onchange="updateVerification('${key}',${i},this.value)">
             <option></option>
-            <option ${ver==='Verified'?'selected':''}>Verified</option>
-            <option ${ver==='Rejected'?'selected':''}>Rejected</option>
+            <option value="Verified" ${ver==='Verified'?'selected':''}>Verified</option>
+            <option value="Reject" ${ver==='Reject'?'selected':''}>Reject</option>
           </select>
         </td>`;
       }
 
       body.innerHTML += `
-      <tr>
+      <tr class="${locked?'locked':''}">
         <td>${d.date}</td>
         <td>${d.line}</td>
         <td>${d.station}</td>
-        <td><pre style="white-space:pre-wrap;">${d.description}</pre></td>
+        <td><pre>${d.description}</pre></td>
         <td>${d.rejectBy}</td>
-        <td><input value="${d.pic}" oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
         <td>
-          <select onchange="db.ref('defects/${key}/status').set(this.value)">
-            <option ${d.status==='In Progress'?'selected':''}>In Progress</option>
-            <option ${d.status==='Closed'?'selected':''}>Closed</option>
+          <input value="${d.pic||''}" ${locked?'disabled':''}
+            oninput="db.ref('defects/${key}/pic').set(this.value)">
+        </td>
+        <td>
+          <select ${locked?'disabled':''}
+            onchange="db.ref('defects/${key}/status').set(this.value)">
+            <option></option>
+            <option value="On Going" ${d.status==='On Going'?'selected':''}>On Going</option>
+            <option value="Closed" ${d.status==='Closed'?'selected':''}>Closed</option>
           </select>
         </td>
         ${daysHTML}
@@ -99,52 +133,77 @@ function renderTable() {
     });
 
     applyColors();
+    autoCloseCheck();
   });
 }
 
-// Update day value
-function updateDay(key, dayIndex, val){
-  db.ref(`defects/${key}/days/${dayIndex}/value`).set(val);
-  applyColors();
+/* ===== UPDATE ===== */
+function updateDay(key,i,val){
+  db.ref(`defects/${key}/days/${i}/value`).set(val);
+  autoCloseCheck();
 }
 
-// Update verification
-function updateVerification(key, dayIndex, val){
-  db.ref(`defects/${key}/days/${dayIndex}/verification`).set(val);
-  applyColors();
+function updateVerification(key,i,val){
+  db.ref(`defects/${key}/days/${i}/verification`).set(val);
+  autoCloseCheck();
 }
 
-// Apply colors dynamically
+/* ===== AUTO CLOSE ===== */
+function autoCloseCheck(){
+  db.ref("defects").once("value", snap=>{
+    snap.forEach(child=>{
+      const d = child.val();
+      if(d.status === "Closed") return;
+
+      const dayDiff = getDayDiff(d.date);
+      let ok = true;
+
+      for(let i=0;i<=dayDiff && i<14;i++){
+        const v = d.days?.[i]?.value;
+        const ver = d.days?.[i]?.verification;
+        if(v !== "0" || ver !== "Verified"){
+          ok = false;
+          break;
+        }
+      }
+
+      if(ok){
+        db.ref(`defects/${child.key}/status`).set("Closed");
+      }
+    });
+  });
+}
+
+/* ===== COLORS ===== */
 function applyColors(){
-  const table = document.getElementById("tableBody");
-  for(let r=0;r<table.rows.length;r++){
-    const row = table.rows[r];
+  const rows = document.getElementById("tableBody").rows;
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
 
-    // Status
     const status = row.cells[6].querySelector("select");
-    if(status.value === "In Progress") status.className="yellow";
-    else if(status.value === "Closed") status.className="green";
-    else status.className="";
+    if(status){
+      status.className="";
+      if(status.value==="On Going") status.classList.add("yellow");
+      if(status.value==="Closed") status.classList.add("green");
+    }
 
-    // Days + verification
     for(let i=0;i<14;i++){
-      const dayInput = row.cells[7 + i*2].querySelector("input");
-      const verSelect = row.cells[7 + i*2 + 1].querySelector("select");
+      const cell = row.cells[7+i];
+      if(!cell) continue;
+      const val = cell.querySelector("input");
+      const ver = cell.querySelector("select");
 
-      // Day color
-      if(dayInput.value==='0') dayInput.className="green";
-      else if(dayInput.value!=='') dayInput.className="red";
-      else dayInput.className="";
+      val.className="";
+      if(val.value==="0") val.classList.add("green");
+      else if(val.value!=="") val.classList.add("red");
 
-      // Verification color
-      if(verSelect.value==="Verified") verSelect.className="green";
-      else if(verSelect.value==="Rejected") verSelect.className="red";
-      else verSelect.className="";
+      ver.className="";
+      if(ver.value==="Verified") ver.classList.add("green");
+      if(ver.value==="Reject") ver.classList.add("red");
     }
   }
 }
 
-// Initial render
 renderTable();
 </script>
 
