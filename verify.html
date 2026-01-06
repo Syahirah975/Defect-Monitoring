@@ -11,19 +11,14 @@ h1 { color:#22c55e; }
 table { width:100%; border-collapse:collapse; margin-top:20px; }
 th, td { border:1px solid #1f2937; padding:5px; font-size:12px; text-align:center; }
 th { background:#111827; }
-input, select {
-  width:100%;
-  background:#111827;
-  color:white;
-  border:1px solid #1f2937;
-}
+input, select { width:100%; background:#111827; color:white; border:1px solid #1f2937; }
 .green { background:#16a34a !important; }
 .red { background:#dc2626 !important; }
 .yellow { background:#facc15 !important; color:black; }
 .locked { opacity:0.6; pointer-events:none; }
-.day-label { font-size:10px; color:#93c5fd; }
+.day-label { font-size:10px; color:#93c5fd; margin-bottom:2px; display:block; }
 a { color:#93c5fd; }
-pre { white-space:pre-wrap; }
+pre { white-space:pre-wrap; margin:0; }
 </style>
 </head>
 <body>
@@ -58,25 +53,29 @@ firebase.initializeApp({
   databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "defect-monitoring-34967"
 });
-
 const db = firebase.database();
 
-/* ===== DATE HELPERS ===== */
-function getDayDiff(startDateStr){
-  const start = new Date(startDateStr);
+/* ===== Helpers ===== */
+function parseDate(dateStr){
+  // Expect YYYY-MM-DD format
+  const d = new Date(dateStr);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function getDayDiff(startDate){
   const today = new Date();
-  start.setHours(0,0,0,0);
   today.setHours(0,0,0,0);
-  return Math.floor((today - start) / 86400000);
+  return Math.floor((today - startDate)/86400000);
 }
 
-function getDateLabel(startDateStr, offset){
-  const d = new Date(startDateStr);
+function formatDateLabel(startDate, offset){
+  const d = new Date(startDate);
   d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString("en-GB");
+  return d.toLocaleDateString("en-GB"); // DD/MM/YYYY
 }
 
-/* ===== RENDER ===== */
+/* ===== Render Table ===== */
 function renderTable(){
   db.ref("defects").once("value", snap=>{
     const body = document.getElementById("tableBody");
@@ -85,7 +84,8 @@ function renderTable(){
     snap.forEach(child=>{
       const d = child.val();
       const key = child.key;
-      const dayDiff = getDayDiff(d.date);
+      const startDate = parseDate(d.date);
+      const dayDiff = getDayDiff(startDate);
       const locked = d.status === "Closed";
 
       let daysHTML = "";
@@ -95,34 +95,27 @@ function renderTable(){
         const future = i > dayDiff;
         const disabled = (future || locked) ? "disabled" : "";
 
-        daysHTML += `
-        <td>
-          <div class="day-label">${getDateLabel(d.date,i)}</div>
+        daysHTML += `<td>
+          <span class="day-label">${formatDateLabel(startDate,i)}</span>
           <input type="number" min="0" value="${val}" ${disabled}
             oninput="updateDay('${key}',${i},this.value)">
-          <select ${disabled}
-            onchange="updateVerification('${key}',${i},this.value)">
-            <option></option>
+          <select ${disabled} onchange="updateVerification('${key}',${i},this.value)">
+            <option value=""></option>
             <option value="Verified" ${ver==='Verified'?'selected':''}>Verified</option>
             <option value="Reject" ${ver==='Reject'?'selected':''}>Reject</option>
           </select>
         </td>`;
       }
 
-      body.innerHTML += `
-      <tr class="${locked?'locked':''}">
+      body.innerHTML += `<tr class="${locked?'locked':''}">
         <td>${d.date}</td>
         <td>${d.line}</td>
         <td>${d.station}</td>
         <td><pre>${d.description}</pre></td>
         <td>${d.rejectBy}</td>
+        <td><input value="${d.pic||''}" ${locked?'disabled':''} oninput="db.ref('defects/${key}/pic').set(this.value)"></td>
         <td>
-          <input value="${d.pic||''}" ${locked?'disabled':''}
-            oninput="db.ref('defects/${key}/pic').set(this.value)">
-        </td>
-        <td>
-          <select ${locked?'disabled':''}
-            onchange="db.ref('defects/${key}/status').set(this.value)">
+          <select ${locked?'disabled':''} onchange="db.ref('defects/${key}/status').set(this.value)">
             <option></option>
             <option value="On Going" ${d.status==='On Going'?'selected':''}>On Going</option>
             <option value="Closed" ${d.status==='Closed'?'selected':''}>Closed</option>
@@ -133,59 +126,57 @@ function renderTable(){
     });
 
     applyColors();
-    autoCloseCheck();
+    autoCloseDefects();
   });
 }
 
-/* ===== UPDATE ===== */
+/* ===== Update Functions ===== */
 function updateDay(key,i,val){
   db.ref(`defects/${key}/days/${i}/value`).set(val);
-  autoCloseCheck();
+  autoCloseDefects();
 }
 
 function updateVerification(key,i,val){
   db.ref(`defects/${key}/days/${i}/verification`).set(val);
-  autoCloseCheck();
+  autoCloseDefects();
 }
 
-/* ===== AUTO CLOSE ===== */
-function autoCloseCheck(){
+/* ===== Auto-Close Logic ===== */
+function autoCloseDefects(){
   db.ref("defects").once("value", snap=>{
     snap.forEach(child=>{
       const d = child.val();
       if(d.status === "Closed") return;
 
-      const dayDiff = getDayDiff(d.date);
-      let ok = true;
-
+      const startDate = parseDate(d.date);
+      const dayDiff = getDayDiff(startDate);
+      let allOk = true;
       for(let i=0;i<=dayDiff && i<14;i++){
-        const v = d.days?.[i]?.value;
+        const val = d.days?.[i]?.value;
         const ver = d.days?.[i]?.verification;
-        if(v !== "0" || ver !== "Verified"){
-          ok = false;
+        if(val !== "0" || ver !== "Verified"){
+          allOk = false;
           break;
         }
       }
 
-      if(ok){
+      if(allOk){
         db.ref(`defects/${child.key}/status`).set("Closed");
       }
     });
   });
 }
 
-/* ===== COLORS ===== */
+/* ===== Apply Colors ===== */
 function applyColors(){
   const rows = document.getElementById("tableBody").rows;
   for(let r=0;r<rows.length;r++){
     const row = rows[r];
 
-    const status = row.cells[6].querySelector("select");
-    if(status){
-      status.className="";
-      if(status.value==="On Going") status.classList.add("yellow");
-      if(status.value==="Closed") status.classList.add("green");
-    }
+    const statusSelect = row.cells[6].querySelector("select");
+    statusSelect.className="";
+    if(statusSelect.value==="On Going") statusSelect.classList.add("yellow");
+    if(statusSelect.value==="Closed") statusSelect.classList.add("green");
 
     for(let i=0;i<14;i++){
       const cell = row.cells[7+i];
@@ -204,6 +195,7 @@ function applyColors(){
   }
 }
 
+/* ===== Initial Load ===== */
 renderTable();
 </script>
 
