@@ -24,7 +24,9 @@ th, td {
   font-size: 12px;
   text-align: center;
 }
-th { background: #111827; }
+th {
+  background: #111827;
+}
 input.day-input {
   width: 30px;
   text-align: center;
@@ -32,10 +34,22 @@ input.day-input {
   color: white;
   border: 1px solid #1f2937;
 }
-.green { background: #16a34a !important; }
-.red { background: #dc2626 !important; }
-a { color: #93c5fd; }
-img { max-width: 50px; display: block; margin: auto; }
+.green {
+  background-color: #16a34a !important;
+  color: white !important;
+}
+.red {
+  background-color: #dc2626 !important;
+  color: white !important;
+}
+a {
+  color: #93c5fd;
+}
+img {
+  display: block;
+  margin: 2px auto;
+  max-width: 50px;
+}
 </style>
 </head>
 
@@ -54,79 +68,85 @@ img { max-width: 50px; display: block; margin: auto; }
 <th>Description</th>
 <th>Photo</th>
 <th>Reject By</th>
-<th colspan="14">14 Day Monitoring</th>
+<th>Day 1</th>
+<th>Day 2</th>
+<th>Day 3</th>
+<th>Day 4</th>
+<th>Day 5</th>
+<th>Day 6</th>
+<th>Day 7</th>
+<th>Day 8</th>
+<th>Day 9</th>
+<th>Day 10</th>
+<th>Day 11</th>
+<th>Day 12</th>
+<th>Day 13</th>
+<th>Day 14</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
 </table>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-firebase.initializeApp({
-  apiKey: "AIzaSyB5EQudIAO9FsxMn6V1qPlawjBzhmlAU_M",
-  authDomain: "defect-monitoring-34967.firebaseapp.com",
-  databaseURL: "https://defect-monitoring-34967-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "defect-monitoring-34967"
-});
+const KEY = "defect_database";
 
-const db = firebase.database();
-
-/* ===== COLOR ===== */
-function applyColor(input){
-  input.classList.remove("green","red");
-  if(input.value === "0") input.classList.add("green");
-  else if(input.value !== "") input.classList.add("red");
+function getData() {
+  return JSON.parse(localStorage.getItem(KEY)) || [];
 }
 
-/* ===== UPDATE DAY ===== */
-function updateDay(key, index){
-  const input = document.getElementById(`day-${key}-${index}`);
-  db.ref(`defects/${key}/days/${index}`).set(input.value.trim());
+function saveData(data) {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+// Apply color for a day input
+function applyColor(input) {
+  input.classList.remove("green", "red");
+  if (input.value === "0") input.classList.add("green");
+  else if (input.value) input.classList.add("red");
+}
+
+// update day value and color
+function updateDay(index, dayIndex) {
+  const input = document.getElementById(`day-${index}-${dayIndex}`);
+  const data = getData();
+  data[index].days[dayIndex] = input.value.trim();
+  saveData(data);
   applyColor(input);
 }
 
-/* ===== RENDER ===== */
-function render(){
-  db.ref("defects").on("value", snap=>{
-    const body = document.getElementById("tableBody");
-    body.innerHTML = "";
+// render table
+function render() {
+  const data = getData();
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
 
-    snap.forEach(child=>{
-      const d = child.val();
-      const key = child.key;
-      if(!d.days) d.days = Array(14).fill("");
+  data.forEach((d, i) => {
+    if (!d.days) d.days = Array(14).fill("");
 
-      let dayCols = "";
-      d.days.forEach((val, i)=>{
-        dayCols += `
-        <td>
-          <input class="day-input"
-            id="day-${key}-${i}"
-            value="${val}"
-            oninput="updateDay('${key}',${i})">
-        </td>`;
-      });
+    const row = document.createElement("tr");
+    let dayColumns = "";
 
-      body.innerHTML += `
-      <tr>
-        <td>${d.no}</td>
-        <td>${d.date}</td>
-        <td>${d.line}</td>
-        <td>${d.station}</td>
-        <td><pre style="white-space:pre-wrap">${d.description}</pre></td>
-        <td>${d.photo ? `<a href="${d.photo}" target="_blank"><img src="${d.photo}"></a>` : "No Photo"}</td>
-        <td>${d.rejectBy}</td>
-        ${dayCols}
-      </tr>`;
+    d.days.forEach((val, dayIndex) => {
+      dayColumns += `<td><input class="day-input" id="day-${i}-${dayIndex}" value="${val}" oninput="updateDay(${i}, ${dayIndex})"></td>`;
+    });
 
-      // apply colors after render
-      d.days.forEach((_, i)=>{
-        const input = document.getElementById(`day-${key}-${i}`);
-        applyColor(input);
-      });
+    row.innerHTML = `
+      <td>${d.no}</td>
+      <td>${d.date}</td>
+      <td>${d.line}</td>
+      <td>${d.station}</td>
+      <td><pre style="white-space: pre-wrap;">${d.description}</pre></td>
+      <td>${d.photo ? `<a href="${d.photo}" target="_blank"><img src="${d.photo}"></a>` : "No Photo"}</td>
+      <td>${d.rejectBy}</td>
+      ${dayColumns}
+    `;
+
+    body.appendChild(row);
+
+    // Apply colors immediately after adding row
+    d.days.forEach((_, dayIndex) => {
+      const input = document.getElementById(`day-${i}-${dayIndex}`);
+      applyColor(input);
     });
   });
 }
